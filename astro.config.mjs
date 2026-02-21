@@ -1,20 +1,20 @@
-import { defineConfig } from 'astro/config';
+import { defineConfig } from "astro/config";
 import sitemap from "@astrojs/sitemap";
 import react from "@astrojs/react";
 import mdx from "@astrojs/mdx";
 import cloudflare from "@astrojs/cloudflare";
-import tailwindcss from '@tailwindcss/vite';
+import tailwindcss from "@tailwindcss/vite";
 import compress from "astro-compress";
 import mermaid from "astro-mermaid";
-import fs from 'node:fs';
-import path from 'node:path';
-import matter from 'gray-matter';
+import fs from "node:fs";
+import path from "node:path";
+import matter from "gray-matter";
 
 // Helper to find noindex URLs
 function getNoIndexUrls() {
   const urls = new Set();
-  const contentDir = path.resolve('./src/content');
-  const pagesDir = path.resolve('./src/pages');
+  const contentDir = path.resolve("./src/content");
+  const pagesDir = path.resolve("./src/pages");
 
   function scanDir(dir, callback) {
     if (!fs.existsSync(dir)) return;
@@ -32,17 +32,17 @@ function getNoIndexUrls() {
 
   // Scan Content Collections
   scanDir(contentDir, (filePath) => {
-    if (filePath.endsWith('.md') || filePath.endsWith('.mdx')) {
+    if (filePath.endsWith(".md") || filePath.endsWith(".mdx")) {
       try {
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const fileContent = fs.readFileSync(filePath, "utf-8");
         const { data } = matter(fileContent);
         if (data.noindex) {
-           let relative = path.relative(contentDir, filePath);
-           let urlPath = relative.replace(/\.(md|mdx)$/, '');
-           urlPath = urlPath.replace(/\\/g, '/');
-           if (!urlPath.startsWith('/')) urlPath = '/' + urlPath;
-           urls.add(urlPath);
-           urls.add(urlPath + '/');
+          let relative = path.relative(contentDir, filePath);
+          let urlPath = relative.replace(/\.(md|mdx)$/, "");
+          urlPath = urlPath.replace(/\\/g, "/");
+          if (!urlPath.startsWith("/")) urlPath = "/" + urlPath;
+          urls.add(urlPath);
+          urls.add(urlPath + "/");
         }
       } catch (e) {
         console.warn(`Error parsing frontmatter for ${filePath}`, e);
@@ -52,22 +52,22 @@ function getNoIndexUrls() {
 
   // Scan Pages
   scanDir(pagesDir, (filePath) => {
-    if (filePath.endsWith('.astro')) {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      if (content.includes('noindex={true}')) {
+    if (filePath.endsWith(".astro")) {
+      const content = fs.readFileSync(filePath, "utf-8");
+      if (content.includes("noindex={true}")) {
         let relative = path.relative(pagesDir, filePath);
-        let urlPath = relative.replace(/\.astro$/, '');
-        urlPath = urlPath.replace(/\\/g, '/');
-        
-        if (urlPath.endsWith('/index')) {
-          urlPath = urlPath.replace(/\/index$/, '') || '/';
-        } else if (urlPath === 'index') {
-            urlPath = '/';
+        let urlPath = relative.replace(/\.astro$/, "");
+        urlPath = urlPath.replace(/\\/g, "/");
+
+        if (urlPath.endsWith("/index")) {
+          urlPath = urlPath.replace(/\/index$/, "") || "/";
+        } else if (urlPath === "index") {
+          urlPath = "/";
         }
 
-        if (!urlPath.startsWith('/')) urlPath = '/' + urlPath;
+        if (!urlPath.startsWith("/")) urlPath = "/" + urlPath;
         urls.add(urlPath);
-        urls.add(urlPath + '/');
+        urls.add(urlPath + "/");
       }
     }
   });
@@ -76,7 +76,7 @@ function getNoIndexUrls() {
 }
 
 const noIndexUrls = getNoIndexUrls();
-console.log('Excluding URLs from sitemap:', noIndexUrls);
+console.log("Excluding URLs from sitemap:", noIndexUrls);
 
 const DEFAULT_LOCALE = "en";
 
@@ -89,66 +89,76 @@ import process from "node:process";
 
 // Adapter selection strategy
 function getAdapter() {
-  const adapter = process.env.ADAPTER || 'node';
-  
+  const adapter = process.env.ADAPTER || "node";
+
   switch (adapter) {
-    case 'vercel':
+    case "vercel":
       return vercel({
-        webAnalytics: { enabled: true }
+        webAnalytics: { enabled: true },
       });
-    case 'netlify':
+    case "netlify":
       return netlify();
-    case 'cloudflare':
+    case "cloudflare":
       return cloudflare({
         platformProxy: {
           enabled: true,
         },
         runtime: {
-          mode: 'advanced',
-          type: 'worker',
+          mode: "advanced",
+          type: "worker",
           nodejsCompat: true,
         },
       });
-    case 'node':
+    case "node":
     default:
       return node({
-        mode: 'standalone'
+        mode: "standalone",
       });
   }
 }
 
 // https://astro.build/config
 export default defineConfig({
-  site: process.env.SITE_URL || 'https://cooper.gladtek.com',
-  output: 'static',
+  site: process.env.SITE_URL || "https://cooper.gladtek.com",
+  output: "static",
   image: {
-    domains: ['vitejs.dev', 'upload.wikimedia.org', 'astro.build', 'pagepro.co'],
+    domains: [
+      "vitejs.dev",
+      "upload.wikimedia.org",
+      "astro.build",
+      "pagepro.co",
+      "assets.vercel.com", // 👈 add this
+    ],
   },
   adapter: getAdapter(),
   integrations: [
-      sitemap({
-          filter: (page) => {
-              const url = new URL(page);
-              const pathname = url.pathname;
-              return !noIndexUrls.includes(pathname);
-          }
-      }), 
-      react(), 
-      mdx(),
-      mermaid(),
-      (await import("astro-compress")).default({Image : true, JavaScript : true, HTML : false})
+    sitemap({
+      filter: (page) => {
+        const url = new URL(page);
+        const pathname = url.pathname;
+        return !noIndexUrls.includes(pathname);
+      },
+    }),
+    react(),
+    mdx(),
+    mermaid(),
+    (await import("astro-compress")).default({
+      Image: true,
+      JavaScript: true,
+      HTML: false,
+    }),
   ],
   vite: {
     plugins: [tailwindcss()],
     define: {
-        'import.meta.env.DEFAULT_LOCALE': JSON.stringify(DEFAULT_LOCALE)
-    }
+      "import.meta.env.DEFAULT_LOCALE": JSON.stringify(DEFAULT_LOCALE),
+    },
   },
   i18n: {
     defaultLocale: DEFAULT_LOCALE,
     locales: ["en"],
     routing: {
-        prefixDefaultLocale: true
-    }
-  }
+      prefixDefaultLocale: true,
+    },
+  },
 });
