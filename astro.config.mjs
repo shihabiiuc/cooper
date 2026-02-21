@@ -4,13 +4,15 @@ import react from "@astrojs/react";
 import mdx from "@astrojs/mdx";
 import cloudflare from "@astrojs/cloudflare";
 import tailwindcss from "@tailwindcss/vite";
-import compress from "astro-compress";
 import mermaid from "astro-mermaid";
+import compress from "astro-compress";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 
-// Helper to find noindex URLs
+const DEFAULT_LOCALE = "en";
+
+// Helper to find noindex URLs (your existing code)
 function getNoIndexUrls() {
   const urls = new Set();
   const contentDir = path.resolve("./src/content");
@@ -30,7 +32,7 @@ function getNoIndexUrls() {
     }
   }
 
-  // Scan Content Collections
+  // Scan Content
   scanDir(contentDir, (filePath) => {
     if (filePath.endsWith(".md") || filePath.endsWith(".mdx")) {
       try {
@@ -58,13 +60,9 @@ function getNoIndexUrls() {
         let relative = path.relative(pagesDir, filePath);
         let urlPath = relative.replace(/\.astro$/, "");
         urlPath = urlPath.replace(/\\/g, "/");
-
-        if (urlPath.endsWith("/index")) {
+        if (urlPath.endsWith("/index"))
           urlPath = urlPath.replace(/\/index$/, "") || "/";
-        } else if (urlPath === "index") {
-          urlPath = "/";
-        }
-
+        else if (urlPath === "index") urlPath = "/";
         if (!urlPath.startsWith("/")) urlPath = "/" + urlPath;
         urls.add(urlPath);
         urls.add(urlPath + "/");
@@ -78,71 +76,34 @@ function getNoIndexUrls() {
 const noIndexUrls = getNoIndexUrls();
 console.log("Excluding URLs from sitemap:", noIndexUrls);
 
-const DEFAULT_LOCALE = "en";
-
-import vercel from "@astrojs/vercel";
-import netlify from "@astrojs/netlify";
-// import node from "@astrojs/node";
-import process from "node:process";
-
-// ... other imports
-
-// Adapter selection strategy
-// function getAdapter() {
-//   const adapter = process.env.ADAPTER || "node";
-
-//   switch (adapter) {
-//     case "vercel":
-//       return vercel({
-//         webAnalytics: { enabled: true },
-//       });
-//     case "netlify":
-//       return netlify();
-//     case "cloudflare":
-//       return cloudflare({
-//         platformProxy: {
-//           enabled: true,
-//         },
-//         runtime: {
-//           mode: "advanced",
-//           type: "worker",
-//           nodejsCompat: true,
-//         },
-//       });
-//     case "node":
-//     default:
-//       return node({
-//         mode: "standalone",
-//       });
-//   }
-// }
-
-// https://astro.build/config
 export default defineConfig({
-  site: process.env.SITE_URL || "https://cooper.gladtek.com",
+  adapter: cloudflare({
+    platformProxy: { enabled: true },
+    runtime: { mode: "advanced", type: "worker", nodejsCompat: true },
+  }),
   output: "static",
+  site: process.env.SITE_URL || "https://cooper.gladtek.com",
+
   image: {
     domains: [
       "vitejs.dev",
       "upload.wikimedia.org",
       "astro.build",
       "pagepro.co",
-      "assets.vercel.com", // 👈 add this
+      "assets.vercel.com",
     ],
   },
-  // adapter: getAdapter(),
   integrations: [
     sitemap({
       filter: (page) => {
         const url = new URL(page);
-        const pathname = url.pathname;
-        return !noIndexUrls.includes(pathname);
+        return !noIndexUrls.includes(url.pathname);
       },
     }),
     react(),
     mdx(),
     mermaid(),
-    (await import("astro-compress")).default({
+    compress({
       Image: true,
       JavaScript: true,
       HTML: false,
